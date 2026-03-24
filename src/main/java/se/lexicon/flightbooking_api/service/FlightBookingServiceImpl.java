@@ -9,6 +9,8 @@ import se.lexicon.flightbooking_api.dto.FlightBookingDTO;
 import se.lexicon.flightbooking_api.dto.FlightListDTO;
 import se.lexicon.flightbooking_api.entity.FlightBooking;
 import se.lexicon.flightbooking_api.entity.FlightStatus;
+import se.lexicon.flightbooking_api.exception.FlightBookingException;
+import se.lexicon.flightbooking_api.exception.ResourceNotFoundException;
 import se.lexicon.flightbooking_api.mapper.FlightBookingMapper;
 import se.lexicon.flightbooking_api.repository.FlightBookingRepository;
 
@@ -27,10 +29,10 @@ public class FlightBookingServiceImpl implements FlightBookingService {
     @Override
     public FlightBookingDTO bookFlight(Long flightId, BookFlightRequestDTO bookingRequest) {
         FlightBooking flight = flightBookingRepository.findById(flightId)
-                .orElseThrow(() -> new RuntimeException("Flight not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Flight not found"));
 
         if (flight.getStatus() != FlightStatus.AVAILABLE) {
-            throw new RuntimeException("Flight is not available");
+            throw new FlightBookingException("Flight is not available");
         }
 
         flight.setPassengerName(bookingRequest.passengerName());
@@ -44,10 +46,10 @@ public class FlightBookingServiceImpl implements FlightBookingService {
     @Override
     public void cancelFlight(Long flightId, String passengerEmail) {
         FlightBooking flight = flightBookingRepository.findById(flightId)
-                .orElseThrow(() -> new RuntimeException("Flight not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Flight not found"));
 
         if (!flight.getPassengerEmail().equals(passengerEmail)) {
-            throw new RuntimeException("Passenger email does not match");
+            throw new FlightBookingException("Passenger email does not match");
         }
 
         flight.setStatus(FlightStatus.AVAILABLE);

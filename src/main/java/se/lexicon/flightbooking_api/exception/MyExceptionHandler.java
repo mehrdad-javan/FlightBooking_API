@@ -1,70 +1,64 @@
 package se.lexicon.flightbooking_api.exception;
 
-import jakarta.validation.ConstraintViolationException;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+
+import java.net.URI;
+import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 
 @ControllerAdvice
-public class MyExceptionHandler {
+public class MyExceptionHandler extends ResponseEntityExceptionHandler {
 
-
-    // Handle resource not found
-    @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ErrorResponse> handleNoResourceFound(NoResourceFoundException ex) {
-        System.out.println("HandleNoResourceFound: " + ex.getMessage());
-        String errorMessage = "Resource not found: " + ex.getMessage();
-        return createErrorResponse(HttpStatus.NOT_FOUND, errorMessage);
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ProblemDetail handleResourceNotFoundException(ResourceNotFoundException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problemDetail.setTitle("Resource Not Found");
+        problemDetail.setType(URI.create("/errors/not-found"));
+        problemDetail.setProperty("timestamp", LocalDateTime.now());
+        return problemDetail;
     }
 
+    @ExceptionHandler(FlightBookingException.class)
+    public ProblemDetail handleFlightBookingException(FlightBookingException ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        problemDetail.setTitle("Flight Booking Error");
+        problemDetail.setType(URI.create("/errors/booking-error"));
+        problemDetail.setProperty("timestamp", LocalDateTime.now());
+        return problemDetail;
+    }
 
-    // Handle invalid URI parameters (type mismatch)
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        System.out.println("HandleMethodArgumentTypeMismatch: " + ex.getMessage());
-        String invalidParamMessage = "Parameter '%s' should be of type %s";
-        String errorMessage = String.format(invalidParamMessage,
-                ex.getName(),
-                ex.getRequiredType().getSimpleName());
-        return createErrorResponse(HttpStatus.BAD_REQUEST, errorMessage);
-
+    public ProblemDetail handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String detail = String.format("Parameter '%s' should be of type %s", ex.getName(), ex.getRequiredType().getSimpleName());
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
+        problemDetail.setTitle("Type Mismatch");
+        problemDetail.setProperty("timestamp", LocalDateTime.now());
+        return problemDetail;
     }
 
-    // Handle validation errors
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ErrorResponse> handleValidationViolation(ConstraintViolationException ex) {
-        System.out.println("HandleValidationViolation: " + ex.getMessage());
-        String[] violations = ex.getConstraintViolations().stream()
-                .map(violation -> violation.getMessage())
-                .toArray(String[]::new);
-        return createErrorResponse(HttpStatus.BAD_REQUEST, violations);
+    @Override
+    protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers, HttpStatusCode status, WebRequest request) {
+        String errors = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining(", "));
+
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, errors);
+        problemDetail.setTitle("Validation Failed");
+        problemDetail.setProperty("timestamp", LocalDateTime.now());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(problemDetail);
     }
 
-    // Handle runtime exceptions
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
-        System.out.println("HandleRuntimeException: " + ex.getMessage());
-        return createErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
-    // Handle generic exceptions
     @ExceptionHandler(Exception.class)
-    // ResponseEntity is a Spring class that represents the entire HTTP response, including status code, headers, and body.
-    public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex) {
-        System.out.println("HandleGlobalException: " + ex.getMessage());
-        String uuid = java.util.UUID.randomUUID().toString().toUpperCase();
-        System.err.println("Error ID: " + uuid + " - " + ex.getMessage());
-        return createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred: " + uuid);
+    public ProblemDetail handleGlobalException(Exception ex) {
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
+        problemDetail.setTitle("Internal Server Error");
+        problemDetail.setProperty("timestamp", LocalDateTime.now());
+        return problemDetail;
     }
-
-
-    private ResponseEntity<ErrorResponse> createErrorResponse(HttpStatus status, String... errors) {
-        ErrorResponse errorResponse = new ErrorResponse(status.value(), errors);
-        return new ResponseEntity<>(errorResponse, status);
-    }
-
-
 }

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -48,7 +49,7 @@ public class FlightBookingController {
     @PostMapping("/{flightId}/book")
     public ResponseEntity<FlightBookingDTO> bookFlight(
             @Parameter(description = "ID of the flight to book") @PathVariable Long flightId,
-            @Parameter(description = "Booking request details") @RequestBody BookFlightRequestDTO bookingRequest) {
+            @Parameter(description = "Booking request details") @Valid @RequestBody BookFlightRequestDTO bookingRequest) {
         return ResponseEntity.ok(flightBookingService.bookFlight(flightId, bookingRequest));
     }
 
