@@ -48,10 +48,16 @@ public class FlightBookingServiceImpl implements FlightBookingService {
         FlightBooking flight = flightBookingRepository.findById(flightId)
                 .orElseThrow(() -> new ResourceNotFoundException("Flight not found"));
 
-        if (!flight.getPassengerEmail().equals(passengerEmail)) {
+        if (flight.getStatus() != FlightStatus.BOOKED) {
+            throw new FlightBookingException("Flight is not currently booked");
+        }
+
+        if (flight.getPassengerEmail() == null || !flight.getPassengerEmail().equals(passengerEmail)) {
             throw new FlightBookingException("Passenger email does not match");
         }
 
+        flight.setPassengerName(null);
+        flight.setPassengerEmail(null);
         flight.setStatus(FlightStatus.AVAILABLE);
         flightBookingRepository.save(flight);
     }
@@ -66,7 +72,7 @@ public class FlightBookingServiceImpl implements FlightBookingService {
 
     @Override
     public List<FlightBookingDTO> findBookingsByEmail(String email) {
-        return flightBookingRepository.findByPassengerEmail(email)
+        return flightBookingRepository.findByPassengerEmailAndStatus(email, FlightStatus.BOOKED)
                 .stream()
                 .map(mapper::toDTO)
                 .collect(Collectors.toList());
